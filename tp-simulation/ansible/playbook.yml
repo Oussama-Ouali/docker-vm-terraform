@@ -1,0 +1,66 @@
+
+---
+- name: Configure Ubuntu VM with Docker and Nginx
+  hosts: web
+  become: true
+  gather_facts: true
+
+  vars:
+    docker_user: vagrant
+    container_name: web
+    container_image: nginx:alpine
+    container_port: 80
+    host_port: 8080
+
+  tasks:
+    - name: Update APT package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install Docker and Python dependencies
+      ansible.builtin.apt:
+        name:
+          - docker.io
+          - python3-docker
+        state: present
+
+    - name: Enable and start Docker service
+      ansible.builtin.systemd_service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Add vagrant user to Docker group
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: true
+
+    - name: Deploy Nginx Docker container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ container_image }}"
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "{{ host_port }}:{{ container_port }}"
+
+    - name: Verify Docker service
+      ansible.builtin.command: docker info
+      register: docker_status
+      changed_when: false
+
+    - name: Verify Nginx container
+      ansible.builtin.command: docker inspect --format={{ '{{' }}.State.Running{{ '}}' }} "{{ container_name }}"
+      register: nginx_status
+      changed_when: false
+
+    - name: Display deployment status
+      ansible.builtin.debug:
+        msg:
+          - "Docker: Running"
+          - "Nginx running: {{ nginx_status.stdout }}"
+          - "Container: {{ container_name }}"
+          - "VM port: {{ host_port }}"
+          - "Application URL: http://localhost:8080"

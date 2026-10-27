@@ -1,23 +1,15 @@
 #!/bin/bash
 set -e
 
-echo "Updating Ubuntu..."
 apt-get update -y
-
-echo "Installing Docker..."
 apt-get install -y docker.io
-
-echo "Starting Docker..."
 systemctl enable --now docker
 
-echo "Deploying Nginx..."
+if ! docker container inspect web >/dev/null 2>&1; then
+  docker run -d --name web \
+    --restart unless-stopped \
+    -p 8080:80 nginx:alpine
+fi
 
-docker run -d \
-  --name web \
-  --restart unless-stopped \
-  -p 8080:80 \
-  nginx:alpine
-
-echo "Docker installation completed!"
 docker --version
 docker ps
